@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Picklist</title>
+    <%= csrf_meta_tags %>
+
+    <%= stylesheet_link_tag    'application', media: 'all' %>
+    <%= javascript_include_tag 'application' %>
+  </head>
+
+  <body>
+  	<div class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a href="#" class="navbar-brand">
+                    <span><%= image_tag "endura-check.svg", height: 20 %></span>
+                    Endura
+                </a>
+            </div>
+            <div class="navbar-collapse collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <div class="noticeAlert text-primary" style="display:none;">
+                            <strong>Notice!</strong> <div class="noticeText"></div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="successAlert text-success" style="display:none;">
+                            <strong>Success!</strong> <div class="successText"></div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="warningAlert text-warning" style="display:none;">
+                            <strong>Warning</strong> <div class="warningText"></div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="form-group" style="margin-top:8px;margin-right:5px;">
+                            <input type="text" class="form-control" id="search" placeholder="Search Item..." style="text-align:center;">
+                        </div>
+                    </li>
+                    <li>
+                        <div class="form-group" style="margin-top:8px;">
+                            <%= select(:sill_fg_users, :user_id, @users,{prompt: "-- Select User --", }, {class: 'form-control', id: 'Users'}) %>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="body-content">
+        <div class="row">
+            <div class="col-sm-3 col-md-3 sidebar">
+                <div class="row">
+                    <div class="text-center text-danger" style="padding:10px;"><b>Past Due</b></div>
+                </div>
+                <div class="row">
+                    <div class="pastDue text-center">
+                    	<% @past_due_dates.each do |date| %>
+                    		<div class="" style="padding-bottom:10px;">
+	                			<label>	
+	                				<%= check_box("items", "complete", {class: date}) %>
+	                            	<%= link_to "##{date.gsub('/', '_')}"  do %>
+	                              		<%= date %>
+	                              		<span class="badge badge-error"><%= @data_group[date].count %></span>
+	                            	<% end %>
+	                            </label>
+                            </div>
+                        <% end %>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="text-center text-primary" style="padding:10px;" ><b>Current Due</b></div>
+                </div>
+                <div class="row">
+                    <div class="currentDue text-center">
+                    	<% @current_due_dates.each do |date| %>
+                    		<div class="" style="padding-bottom:10px;">
+	                			<label>	
+	                				<%= check_box("items", "complete",  {class: date}) %>
+	                            	<%= link_to "##{date.gsub('/', '_')}"  do %>
+	                              		<%= date %>
+	                              		<span class="badge badge-primary"><%= @data_group[date].count %></span>
+	                            	<% end %>
+	                            </label>
+                            </div>
+                        <% end %>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="text-center text-success" style="padding:10px;"><b>Complete</b></div>
+                </div>
+                <div class="row">
+                    <div class="completeDue text-center">
+                        <div class="" style="padding-bottom:10px;">
+                            <label>
+                              <%= check_box("items", "complete", {class: "Completed", checked: true}) %>
+                              <%= link_to "#Completed"  do %>
+                              	Completed
+                              	<span class="badge badge-success"><%= @completed.count %><span>
+                              <% end %> 
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="text-center text-warning" style="padding:10px;">Last 5 Complete</div>
+                </div>
+
+                <div class="row">
+                    <div id="lastTrans"></div>
+                </div>
+
+            </div>
+
+    <%= yield %>
+
+    
+
+    <script type="text/javascript">
+
+        var current_time = new Date();
+        current_time = current_time.getHours() + ":" + current_time.getMinutes() + ":" + current_time.getSeconds()
+
+        $(document).ready(function () {
+            setInterval(checkForAddOns, 600000);
+            $('.completedLink').on('click', function () {
+                stopSpinner();
+            });
+
+            $('.errorClose').on('click', function () {
+                $(this).parent().hide();
+                stopSpinner();
+            });
+
+            $('.submitPUL').on('click', function () {
+                submitPUL();
+                return false;
+            });
+
+            $('.submitPDL').on('click', function () {
+                submitPDL();
+                return false;
+            })
+
+            $('.itemRow').on('click', function (e) {
+                if ($(e.target).is('input.btn')) {
+                    markAllComplete($(this).children('td:eq(1)').text(), $(this).children('td:eq(2)').text(), this);
+                    e.preventDefault();
+                } else {
+                    startSpinner();
+                    if ($(this).css("background-color") == "rgb(214, 233, 198)") {
+                        $(this).closest("tr").next().remove();
+                        $(this).closest("tr").css('background-color', '');
+                        $(this).removeClass('toBeUpdated');
+                        stopSpinner();
+                    } else {
+                        $(this).addClass('toBeUpdated');
+                        var itemNum = $(this).children('td:eq(1)').text();
+                        var dueDate = $(this).children('td:eq(2)').text();
+                        $(this).css('background-color', '#d6e9c6');
+                        importSalesOrders(itemNum, dueDate, this)
+                    }
+                }
+
+            });
+
+            $('input[type=checkbox]').on('click', function () {
+                var new_date = $(this).attr('class').replace(/[\/]/g, "_")
+
+                if ($(this).prop('checked') == true) {
+                    $('#' + new_date).css('display', 'block');
+                } else {
+                    $('#' + new_date).css('display', 'none');
+                }
+
+            });
+
+            $('.errorClose').on('click', function () {
+                $('.errorAlert').hide();
+                $('.errorText').text("");
+            });
+
+            $('.supportEmail').on('click', function () {
+                startSpinner();
+                $.ajax({
+                    type: 'POST',
+                    url: 'SC_Picklist.aspx/sendEmail',
+                    data: JSON.stringify({ errorMsg: $('.errorText').text() }),
+                    contentType: 'application/json; charset=utf-8',
+                    dataType: 'json',
+                    success: function (msg) {
+                        // Do something interesting here.
+                        stopSpinner();
+                        CSAlertSuccess("Support Ticket created. We will be in contact very soon about your issue.")
+                        $('.errorText').text("");
+                        $('.errorAlert').hide();
+
+                    },
+                    error: function (xhr, status, errorThrown) {
+                        stopSpinner();
+                        CSAlertError(xhr.responseText);
+                    }
+                });
+            });
+
+            $('.markNotComplete').on('click', function () {
+                changeStatus($(this).parent().siblings('td:eq(5)'), $(this).parent().siblings('td:eq(6)'), $(this).parent(), 'n');
+            });
+
+
+            $('#search').on('keyup', function () {
+                var search = $(this).val().toUpperCase();
+                if (search == '') {
+                    $("td").css('color', '');
+                    $("tr").removeClass('hidden');
+                } else {
+                    $("td").css('color', '');
+                    $("td").parent('tr').removeClass('hidden')
+                    $("td:contains(" + search + ")").css('color', 'red');
+                    $('tr').addClass('hidden');
+                    $("tr:contains(" + search + ")").removeClass('hidden')
+                }
+            });
+
+            $(function () {
+               // check the initial poistion of the sticky header
+               //var stickyheadertop = $('#stickyheader').offset().top;
+               var complete = $('#stickyheader').offset().top;
+               var completed = $('#stickycompleteheader').offset().top;
+               
+               $(window).scroll(function () {
+                console.log(complete);
+               console.log(completed);
+                   if ($(this).scrollTop() > complete) {
+                       var left_align = $('#stickyheader').position().left;
+                       $('#stickyheader').css('display', 'block');
+                     }
+                   else {
+                       $('#stickyheader').css('display', 'none');
+                   }
+               });
+            });
+
+            stopSpinner();
+        });
+
+
+        function startSpinner() {
+            var opts = {
+                lines: 15 // The number of lines to draw
+                , length: 0 // The length of each line
+                , width: 14 // The line thickness
+                , radius: 56 // The radius of the inner circle
+                , scale: 0.75 // Scales overall size of the spinner
+                , corners: 1 // Corner roundness (0..1)
+                , color: 'red' // #rgb or #rrggbb or array of colors
+                , opacity: 0 // Opacity of the lines
+                , rotate: 55 // The rotation offset
+                , direction: 1 // 1: clockwise, -1: counterclockwise
+                , speed: 0.6 // Rounds per second
+                , trail: 55 // Afterglow percentage
+                , fps: 20 // Frames per second when using setTimeout() as a fallback for CSS
+                , zIndex: 2e9 // The z-index (defaults to 2000000000)
+                , className: 'spinner' // The CSS class to assign to the spinner
+                , top: '50%' // Top position relative to parent
+                , left: '50%' // Left position relative to parent
+                , shadow: false // Whether to render a shadow
+                , hwaccel: false // Whether to use hardware acceleration
+                , position: 'absolute' // Element positioning
+            }
+            // var target = document.getElementById('body')
+            $('#spin_div').css('display', 'block')
+            var target = document.getElementById('spin_div')
+            var spinner = new Spinner(opts).spin(target);
+        }
+
+        function stopSpinner() {
+            $('.spinner').remove();
+            $('#spin_div').css('display', 'none');
+        }
+        //Updates Sales Order Information when row is expanded on the screen
+        function importSalesOrders(itemNum, dueDate, plusObj) {
+            $.ajax({
+                type: 'GET',
+                url: '/sill_fg/sales_order_from_qad',
+                data: { selected_item: itemNum, due_date: dueDate },
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                success: function (response) {
+                    stopSpinner();
+
+                    var htmlString = "<td colspan=6 style=''><div class='panel-group'><div class='panel panel-primary'><div class='panel-heading'>Available Sales Orders</div><div class='panel-body'><table class='table table-striped' style=width:100%;><thead><tr><th><span class='glyphicon glyphicon-info-sign hiddenData' aria-hidden='true'></span></th><th>Description</th><th>Packaging</th><th>Length</th><th class=''>Open Qty</th><th class='hiddenData hidden'>Sales Order</th><th class='hiddenData hidden'>Line</th><th class='hiddenData hidden'>Customer</th><th class='hiddenData hidden'>Spec</th><th></th></thead><tbody>"
+
+                    $.each(response, function (index, value) {
+                            if (value["tt_completed"] != true) {
+                                htmlString = htmlString + "<tr>"
+
+                                htmlString = htmlString + "<td></td>" + "<td>" + value["tt_description"] + "</td>" + "<td>" + value["tt_packaging"] + "</td>" + "<td>" + value["tt_length"] + "</td>" + "<td>" + value["tt_qty_ord"] + "</td>" + "<td class='hiddenData hidden'>" + value["tt_salesorder"] + "</td>" + "<td class='hiddenData hidden' >" + value["tt_line"] + "</td>" + "<td class='hiddenData hidden'>" + value["tt_name"] + "</td>" + "<td class='hiddenData hidden'>" + value["tt_spec"] + "</td>"
+                                htmlString = htmlString + "<td class='text-center' style='vertical-align:middle'><input type='button' value='Complete' class='btn btn-sm btn-primary markIndvComplete'  /></td>"
+                                htmlString = htmlString + "</tr>"
+
+                            }
+                    });
+                    htmlString = $.parseHTML(htmlString + "</tbody></table></div></div></div></td>");
+                    $(plusObj).closest("tr").after(htmlString);
+                    $('.markIndvComplete').on('click', function () {
+                        changeStatus($(this).parent().siblings('td:eq(5)'), $(this).parent().siblings('td:eq(6)'), $(this).parent(), 'y');
+
+                    });
+
+                    //Allows expanding hidden data in case picker needs more details
+                    $('span.hiddenData').on('click', function () {
+                        if ($(this).hasClass('hiddenData')) {
+                            $(this).parent().siblings().removeClass('hidden');
+                            $(this).parents('thead:first').siblings().children().children().removeClass('hidden');
+                            $(this).removeClass('hiddenData');
+                        } else {
+                            $(this).parent().siblings('.hiddenData').addClass('hidden');
+                            $(this).parents('thead:first').siblings().children().children('.hiddenData').addClass('hidden');
+                            $(this).addClass('hiddenData');
+                        }
+
+                    });
+                    updateInv(itemNum, plusObj);
+                },
+                error: function (xhr, status, errorThrown) {
+                    stopSpinner();
+                    CSAlertError(xhr.responseText + " Inside ImportSalesOrder called. Item Trying to update is: " + itemNum);
+                }
+            });
+        }
+
+        //JM: This executes AJAX call to update inventory numbers real time on expand
+        function updateInv(itemNum, plusObj) {
+            $.ajax({
+                type: 'GET',
+                url: '/sill_fg/inv_update_from_qad',
+                data: { selected_item: itemNum },
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                success: function (response) {
+                    stopSpinner();
+                    var htmlString = "<div class='panel panel-danger'><div class='panel panel-heading'>Available Inventory</div><div class='panel-body'><table class='table table-striped' style=width:100%;><thead><tr><th></th><th>Tag</th><th>Location</th><th>Qty</th><th class='text-center'>Actions</th></thead><tbody>"
+                        $.each(response, function (index, value) {
+                            htmlString = htmlString + "<tr>"
+
+                            if (value["ld-ref"] != '') {
+                                htmlString = htmlString + "<td></td>" + "<td>" + value["ld-ref"] + "</td>" + "<td>" + value["ld-loc"] + "</td>" + "<td>" + value["ld-qty-oh"] + "</td>" + "<td class='text-center'>" + "<button value='pul' class='btn btn-sm btn-warning createdPulBtn' style='margin-right:5px' data-toggle='modal' data-target='#pulModal'>PUL</button><button class='btn btn-sm btn-danger createdPdlBtn' style='margin-left:5px' data-toggle='modal' data-target='#pdlModal'>PDL</button>" + "</td>"
+                            } else {
+                                htmlString = htmlString + "<td></td>" + "<td>" + value["ld-ref"] + "</td>" + "<td>" + value["ld-loc"] + "</td>" + "<td>" + value["ld-qty-oh"] + "</td><td/>"
+                            }
+                            htmlString = htmlString + "</tr>"
+                        })
+                    htmlString = $.parseHTML(htmlString + "</tbody></table></div></div>");
+                    $(plusObj).next('td').children('.panel-group').children().after(htmlString);
+
+                    //Add Click Event when button is created
+                    $('.createdPulBtn').on('click', function () {
+                        $('#pulItemNum').text($(this).parents('td:last').prev().children('td:eq(1)').text());
+                        $('#pulTagNum').text($(this).closest('td').siblings('td:eq(1)').text());
+                        $('#pulFromLoc').text($(this).closest('td').siblings('td:eq(2)').text());
+                        $('#pulTagQty').val($(this).closest('td').siblings('td:eq(3)').text());
+                        $('#pulTransQty').val("");
+                        $('.modal').on('shown.bs.modal', function (e) {
+                            if ($('#Users').val() == "") {
+                                $('.modal').modal('hide');
+                                CSAlertWarning("Please select a User at the top before performing a transaction.")
+                            };
+                        });
+                    });
+                    $('.createdPdlBtn').on('click', function () {
+                        $('#pdlItemNum').text($(this).parents('td:last').prev().children('td:eq(1)').text());
+                        $('#pdlTagNum').text($(this).closest('td').siblings('td:eq(1)').text());
+                        $('#pdlFromLoc').text($(this).closest('td').siblings('td:eq(2)').text());
+                        $('#pdlTransQty').val($(this).closest('td').siblings('td:eq(3)').text());
+                        $('.modal').on('shown.bs.modal', function (e) {
+                            if ($('#Users').val() == "") {
+                                $('.modal').modal('hide');
+                                CSAlertWarning("Please select a User at the top before performing a transaction.")
+                            };
+                        });
+
+                    });
+
+                },
+                error: function (xhr, status, errorThrown) {
+                    stopSpinner();
+                    CSAlertError(xhr.responseText + " Inside updateInv called. Item Trying to update is: " + itemNum);
+                }
+            });
+        }
+
+        function updateAfterTrans(itemNum, plusObj) {
+            $(plusObj).next().children().children('.panel-danger').remove();
+            updateInv(itemNum, plusObj);
+            //$(plusObj).removeClass('toBeUpdated');
+        }
+        //Completes PDL transaction through AJAX call
+        function submitPUL() {
+            closeModal();
+            if ($('#pulTransQty').val() == "") {
+                CSAlertWarning("Did not enter value to PUL!")
+            } else if ($('#pulTransQty').val() == "0") {
+                CSAlertWarning("PUL quantity cannot be less then or eqal to 0!")
+            } else if (parseInt($('#pulTagQty').val()) > parseInt($('#pulTransQty').val())) {
+                startSpinner();
+                var itemNum = $('#pulItemNum').text();
+                var fromLocation = $('#pulFromLoc').text();
+                var tag = $('#pulTagNum').text();
+                var qty = $('#pulTransQty').val();
+                var toLocation = $('#pulToLocation option:selected').text();
+                var userId = $('#Users').val();
+                performTransaction(itemNum, fromLocation, toLocation, tag, qty, userId, "pul")
+            } else {
+                CSAlertWarning("PUL cannot be greater then the qty on the tag.")
+            }
+        }
+        //Completes PUL transaction Transaction through AJAX Call
+        function submitPDL() {
+            closeModal();
+            startSpinner();
+            var itemNum = $('#pdlItemNum').text();
+            var fromLocation = $('#pdlFromLoc').text();
+            var tag = $('#pdlTagNum').text();
+            var qty = $('#pdlTransQty').val();
+            var toLocation = $('#pdlToLocation option:selected').text();
+            var userId = $('#Users').val();
+            performTransaction(itemNum, fromLocation, toLocation, tag, qty, userId, "pdl")
+        }
+        //Created an AJAX Call to perform transaction in one place based off variables passed to this function. Can be called from multiple locations
+        function performTransaction(itemNum, fromLocation, toLocation, tag, qty, userId, transType) {
+            $.ajax({
+                type: 'POST',
+                url: '/sill_fg/submit_trans',
+                data: JSON.stringify({ item_num: itemNum, from_loc: fromLocation, to_loc: toLocation, tag: tag, qty_to_move: qty, user_id: userId, type: transType }),
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                success: function (response) {
+                    stopSpinner();
+                    if (response.error == "null") {
+                        updateAfterTrans(itemNum, $('.toBeUpdated'));
+                        CSAlertSuccess("Successful POST To QAD");
+                    } else {
+                        stopSpinner();
+                        CSAlertError(response.error + "Item Number: " + itemNum + " User: " + user_id);
+                    }
+                   
+
+                },
+                error: function (xhr, status, errorThrown) {
+                    stopSpinner();
+                    CSAlertError(xhr.responseText + "Item Number: " + itemNum + " User: " + user_id);
+                }
+            });
+        }
+        //Closes Modal on screen
+        function closeModal() {
+            $('.modal').modal('hide');
+        }
+        //This is an AJAX call when the individaul sales order Marked Complete is called. It updates the status on either  mark complete or not complete
+        function changeStatus(salesOrder, salesLine, workingRow, status) {
+            startSpinner();
+            salesOrder = salesOrder.text();
+            salesLine = salesLine.text();
+            $.ajax({
+                type: 'POST',
+                url: '/sill_fg/change_status',
+                data: JSON.stringify({order_num: salesOrder, line_num: salesLine, status: status}),
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                success: function (response) {
+                    // Recreate Completed table and render newly built table to the screen without refreshing
+                    stopSpinner();
+
+                    updateCompletedPanel(response);
+
+                    if (status == 'y') {
+                        addTop5($(workingRow).parents('td').prev().children('td:eq(1)').text(), $(workingRow).parents('td').prev().children('td:eq(2)').text());
+                        updateRecord(workingRow.parents('tr'));
+                        $('.badge-success').text(parseInt($('.badge-success').text()) + 1);
+                    } else {
+                        addTop5($(workingRow).siblings('td:eq(0)').text(), $(workingRow).siblings('td:eq(1)').text());
+                        updateDataByDueDate($(workingRow).siblings('td:eq(1)').text());
+                        $('.badge-success').text($('.badge-success').text() - 1);
+                    }
+
+                    CSAlertSuccess("Marked Not Complete");
+                },
+                error: function (xhr, status, errorThrown) {
+                    stopSpinner();
+                    CSAlertError(xhr.responseText);
+                }
+            });
+
+        }
+
+        function addTop5(itemNum, dueDate) {
+            var time = new Date($.now());
+            var minutes = (time.getMinutes()<10?'0':'') + time.getMinutes()
+            time = time.getHours() + ":" + minutes;
+            var currentData = $('#lastTrans').html();
+
+            var table_size = $('#lastTrans').children().children('tbody').children().length
+            var start_point = 0;
+            if (table_size > 4) {
+                start_point = table_size - 4
+                $('#lastTrans').children().children('tbody').children('tr:lt(' + start_point + ')').remove();
+                currentData = $('#lastTrans').html();
+            }
+  
+            if (currentData == '') {
+                $('#lastTrans').html('<table class="table table-condensed lastFive"><thead><tr><th>Item</th><th>Due</th><th>Time</th><tbody><tr><td>' + itemNum + '</td><td>' + dueDate + '</td><td>' + time + '</td></tr></tbody></table')
+            } else {
+                $('.lastFive').children('tbody').append('<tr><td>' + itemNum + '</td><td>' + dueDate + '</td><td>' + time + '</td></tr>');
+            }
+
+        }
+        //Is called when parent Mark Complete button is pressed. Marks all complete on the controller side and updates data on the screen through AJAX
+        function markAllComplete(itemNumber, dueDate, row) {
+            startSpinner();
+            $.ajax({
+                type: 'POST',
+                url: '/sill_fg/multi_complete',
+                data: JSON.stringify({ item_num: itemNumber, due_date: dueDate }),
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                success: function (response) {
+                    stopSpinner();
+                    var date = dueDate.replace(/\//g, '_');
+                    var count = $('.span_' + date).text();
+                    $('.span_' + date).text(count - response);
+                    $('.badge-success').text(parseInt($('.badge-success').text()) + parseInt(response));
+                    if ($(row).hasClass('toBeUpdated')) {
+                        $(row).next().remove();
+                                            }
+                    row.remove();
+                    addTop5(itemNumber, dueDate);
+                    $.ajax({
+                        type: 'GET',
+                        url: '/sill_fg/get_completed_data_only',
+                        data: {},
+                        contentType: 'application/json; charset=utf-8',
+                        contentType: 'json',
+                        success: function (response) {
+                            updateCompletedPanel(response);
+                        }, error: function(xhr, status, errorThrown) {
+                           CSAlertError(xhr.responseText);
+                        }
+                    })
+                    CSAlertSuccess("Marked All Complete");
+                },
+                error: function (xhr, status, errorThrown) {
+                    stopSpinner();
+                    CSAlertError(xhr.responseText);
+                }
+            });
+        }
+
+        //Creates and shows success
+        function CSAlertSuccess(message) {
+            $('.successText').text(message);
+            $('.successAlert').show();
+            setTimeout(function () {
+                $('.successAlert').fadeOut();
+            }, 5000);
+        }
+        //Creates and shows error
+        function CSAlertError(message) {
+            $('.errorText').text(message);
+            $('.errorAlert').show();
+        }
+        //Creates and shows warning
+        function CSAlertWarning(message) {
+            $('.warningText').text(message);
+            $('.warningAlert').show();
+            setTimeout(function () {
+                $('.warningAlert').fadeOut();
+            }, 5000);
+        }      
+        //Creates and shows warning
+        function CSAlertNotice(message) {
+            $('.noticeText').text(message);
+            $('.noticeAlert').show();
+            setTimeout(function () {
+                $('.notice').fadeOut();
+            }, 5000);
+        }
+
+        //This function will adjust and update the table when marking items/sales order complete
+        function updateRecord(row) {
+            var currentRow = $(row);
+            var date = $(row).parents('.panel:last').children('.panel-heading').text();
+            date = date.replace(/\//g, '_');
+            var count = $('.span_' + date).text();
+            $('.span_' + date).text(count - 1);
+            var rowCount = $(row).parent().children().size();
+
+            if (rowCount > 1) {
+                //Remove only individual row
+                currentRow.remove();
+            } else {
+
+                //reload taht date dom section
+                //Remove all rows and parent row
+                currentRow.parents('td').prev().remove();
+                currentRow.parents('td').remove();
+            }
+        }
+
+        //Makes AJAX Call back to controller to get updated completed data to rewrite the screen without reloading.
+        function updateCompletedPanel(data) {
+            var htmlString = "<table class='table table'><thead><tr><th>Item Number</th><th>Due Date</th><th>Description</th><th>Length</th><th>Open Qty</th><th>Sales Order</th><th>Line</th><th></th></thead><tbody>"
+            $.each(data, function (index, value) {
+                $.each(value, function (index, value){
+                    var date = new Date(value["tt_due"]);
+                    date = (date.getMonth() + 1) + '/' + ("0" + (date.getDate())).slice(-2) + '/' + (date.getFullYear())
+                    htmlString = htmlString + "<tr>"
+                    htmlString = htmlString + "<td>" + value["tt_Itemnumber"] + "</td>" + "<td>" + date + "</td>" + "<td>" + value["tt_description"] + "</td>" + "<td>" + value["tt_length"] + "</td>" + "<td>" + value["tt_open_qty"] + "</td>" + "<td>" + value["tt_salesorder"] + "</td>" + "<td>" + value["tt_line"] + "</td>" + "</td>"
+                    htmlString = htmlString + "<td class = 'text-center' style='vertical-align:middle'><input type='button' value='Not Complete' class='btn btn-warning markNotComplete'  /></td>"
+                    htmlString = htmlString + "</tr>"
+                });
+            });
+            htmlString = $.parseHTML(htmlString + "</tbody></table>");
+
+            $('#Completed').children('.panel-body').html(htmlString);
+            $('.markNotComplete').on('click', function () {
+                changeStatus($(this).parent().siblings('td:eq(5)'), $(this).parent().siblings('td:eq(6)'), $(this).parent(), 'n');
+            });
+        }
+
+        function updateDataByDueDate(date) {
+            $.ajax({
+                type: 'GET',
+                url: '/sill_fg/get_date_specific_data',
+                data: {due_date: date},
+                contentType: 'application/json; charset=utf-8',
+                contentType: 'json',
+                success: function (response) {
+                    var htmlString = "<table class='table table'><tbody>"
+                    $.each(response, function (index, value) {
+                        htmlString = htmlString + "<tr>"
+                        htmlString = htmlString + "<td>" + value["tt_Itemnumber"] + "</td>" + "<td>" + date + "</td>" + "<td>" + date + "</td>" + "<td>" + value["tt_open_sum"] + "</td>"
+                        htmlString = htmlString + "<td class='text-center' style='vertical-align:middle'><input type='button' value='Complete' class='btn btn-sm btn-success multiComplete' /></td>"
+                        htmlString = htmlString + "</tr>"
+
+                    });
+                    htmlString = $.parseHTML(htmlString + "</tbody></table>");
+
+                    $('#' + date.replace(/\//g, '_')).children('.panel-body').html(htmlString);
+                }, error: function (xhr, status, errorThrown) {
+                    CSAlertError(xhr.responseText);
+                }
+            })
+        }
+
+        function checkForAddOns() {
+
+            $.ajax({
+                type: 'GET',
+                url: '/sill_fg/check_for_add_ons',
+                data: JSON.stringify({ request_time: current_time }),
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                success: function (response) {
+                    if (response > 0) {
+                        CSAlertNotice("Add On added, please refresh the page.")
+                    }
+                },
+                error: function (xhr, status, errorThrown) {
+
+                }
+            });
+        }
+
+    </script>
+
+    <!-- Create Modals for Transaction Functions -->
+    <div class="modal fade" tabindex="-1" role="dialog" id="pulModal">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title text-center">PUL Transaction</h4>
+                </div>
+                
+                <div class="modal-body">
+                    <form>
+                        <div class="form-group">
+                            <b>Item Number: </b><div id="pulItemNum"></div>
+                        </div>
+                        <div class="form-group">
+                            <b>Tag Number: </b><div id="pulTagNum"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="transQty">Move Qty:</label>
+                            <input type="text" class="form-control" id="pulTransQty" placeholder="Enter Qty Here..." />
+                        </div>
+                        <div class="form-group">
+                            <b>From Location: </b><div id="pulFromLoc"></div>
+                        </div>
+                        <div class="from-group"> 
+                            <label for="toLocation">To Location:</label>
+                            <select class="form-control" id="pulToLocation">
+                                <option>2110</option>
+                                <option>2400</option>
+                                <option>SAMPLE</option>
+                            </select>
+                        </div>
+                        <div id="pulTagQty" style="display:none;"></div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary submitPUL">Submit</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+    <div class="modal fade" tabindex="-1" role="dialog" id="pdlModal">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title text-center">PDL Transaction</h4>
+                </div>
+
+                <div class="modal-body">
+                    <form>
+                        <div class="form-group">
+                            <b>Item Number: </b><div id="pdlItemNum"></div>
+                        </div>
+                        <div class="form-group">
+                            <b>Tag Number: </b><div id="pdlTagNum"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="transQty">Move Qty:</label>
+                            <input type="text" class="form-control" id="pdlTransQty" placeholder="Enter Qty Here..." disabled />
+                        </div>
+                        <div class="form-group">
+                            <b>From Location: </b><div id="pdlFromLoc"></div>
+                        </div>
+                        <div class="from-group">
+                            <label for="toLocation">To Location:</label>
+                            <select class="form-control" id="pdlToLocation">
+                                <option>2110</option>
+                                <option>2400</option>
+                                <option>SAMPLE</option>
+                            </select>
+                        </div>
+                        <div id="pdlTagQty" style="display:none;"></div>
+
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary submitPDL">Submit</button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+  </body>
+</html>

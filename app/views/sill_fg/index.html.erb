@@ -1,0 +1,105 @@
+<div id="body">
+    <div class="col-sm-9 col-sm-offset-3 col-md-9 col-md-offset-3 main">
+      <div id="spin_div"></div>
+       <div class="row">
+           <div class="panel-group" style="margin-top:20px;">
+                <div id="stickyheader">
+                <table class="table">
+                         <tr>
+                             <th></th>
+                             <th style="width:210px;">Item Number</th>
+                             <th class="text-center" style="width:100px;">Due Date</th>
+                             <th class="text-center" style="width:100px;">Open Qty</th>
+                             <th>Total Inv</th>
+                             <th></th>
+                         </tr>
+                 </table>
+                </div>
+               <% @data_group.each do |key, value| %>
+                   <div class="panel <%=Qad.add_color_class(key) %>" id=<%= key.gsub('/','_') %> style="display:none;">
+                       <div class="panel-heading text-center"><%= key %></div>
+                       <div class="panel-body">
+                           
+                           <table class="table table">
+                                <thead>
+                                   <tr>
+                                       <th></th>
+                                       <th>Item Number</th>
+                                       <th>Due Date</th>
+                                       <th>Open Qty</th>
+                                       <th>Total Inv</th>
+                                       <th></th>
+                                   </tr>
+                               </thead>
+                               <tbody>
+                                   <% value.each do |json_data| %>
+                                       
+                                       <tr class="itemRow" +  <%= json_data["tt_Itemnumber"] %> >
+                                           <td></td>
+                                           <td style="vertical-align:middle"><%= json_data["tt_Itemnumber"] %></td>
+                                           <td style="vertical-align:middle"><%= json_data["tt_due"] %></td>
+                                           <td style="vertical-align:middle"><%= json_data["tt_open_sum"].to_i %></td>
+                                           <td style="vertical-align:middle"><%= json_data["tt_total_inv"].to_i %></td>
+                                           <td class="text-center" style="vertical-align:middle"><input type="button" value="Complete" class="btn btn-sm btn-primary multiComplete" /></td>
+                                           <!--<td class="text-center" style="vertical-align:middle"><input type="button" value="Complete" class="btn btn-sm btn-danger needList" /></td> -->
+                                       </tr>
+                                   <% end %>
+                               </tbody>
+
+                           </table>
+						          </div>
+                   </div>
+
+               <% end %>
+
+               <div class="panel panel-success" id="Completed">
+                   <div class="panel-heading text-center">Completed</div>
+                   <div class="panel-body">
+                      <div id="stickycompleteheader">
+                      <table class="table">
+                               <tr>
+                                   <th></th>
+                                   <th style="width:210px;">Item Number</th>
+                                   <th class="text-center" style="width:100px;">Due Date</th>
+                                   <th class="text-center" style="width:100px;">Open Qty</th>
+                                   <th>Total Inv</th>
+                                   <th></th>
+                               </tr>
+                       </table>
+                      </div>
+                       <table class="table table">
+                           <thead>
+                               <tr>
+                                   <th>Item Number</th>
+                                   <th>Due Date</th>
+                                   <th>Description</th>
+                                   <th>Length</th>
+                                   <th>Open Qty</th>
+                                   <th>Sales Order</th>
+                                   <th>Line</th>
+                                   <th />
+                               </tr>
+                           </thead>
+                           <tbody>
+                               <% @completed.each do |json_data| %>
+                                   <tr>
+                                       <td style="vertical-align:middle"><%= json_data["tt_Itemnumber"] %></td>
+                                       <td style="vertical-align:middle"><%= json_data["tt_due"] %></td>
+                                       <td style="vertical-align:middle"><%= json_data["tt_description"] %></td>
+                                       <td style="vertical-align:middle"><%= json_data["tt_length"] %></td>
+                                       <td style="vertical-align:middle"><%= json_data["tt_open_qty"].to_i %></td>
+                                       <td style="vertical-align:middle"><%= json_data["tt_salesorder"] %></td>
+                                       <td style="vertical-align:middle"><%= json_data["tt_line"] %></td>
+                                       <td class="text-center" style="vertical-align:middle"><input type="button" value="Not Complete" class="btn btn-sm btn-warning markNotComplete"  /></td>
+                                   </tr>
+                               <% end %>
+                           </tbody>
+                       </table>
+                   </div>
+               </div>
+
+           </div>
+
+        </div>
+    </div>
+</div>
